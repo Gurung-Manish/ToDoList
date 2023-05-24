@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:to_do_list/ToDoList/ToDo_Model.dart';
+import 'package:to_do_list/ToDoList/todo_storage.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,36 +29,33 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _toDoList = [];
+  List<Todo> _toDoList = [];
+  final ToDoStorage toDoStorage = ToDoStorage();
+
   final GlobalKey<AnimatedListState> _key = GlobalKey();
 
-  //adding function
-  void _addItem() {
-    _toDoList.insert(
-        _toDoList.length, "This is item no. ${_toDoList.length + 1}");
-    _key.currentState!.insertItem(
-      _toDoList.length - 1,
-      duration: const Duration(milliseconds: 300),
-    );
+  @override
+  void initState() {
+    super.initState();
+    loadTodos();
   }
 
-  //remove function
-  void _removeItem(int index) {
-    _key.currentState!.removeItem(
-      index,
-      (context, animation) => SizeTransition(
-        sizeFactor: animation,
-        child: Card(
-          color: Colors.red[100],
-          margin: const EdgeInsets.all(5),
-          child: const ListTile(
-            title: Text("Completed"),
-          ),
-        ),
-      ),
-      duration: const Duration(milliseconds: 300),
-    );
-    _toDoList.removeAt(index);
+  Future<void> saveTodos() async {
+    await toDoStorage.saveTodos(_toDoList);
+  }
+
+  Future<void> loadTodos() async {
+    final loadedTodos = await toDoStorage.getTodos();
+    setState(() {
+      _toDoList = loadedTodos;
+    });
+  }
+
+  Future<void> removeTodoAtIndex(int index) async {
+    setState(() {
+      _toDoList.removeAt(index);
+    });
+    await saveTodos();
   }
 
   @override
@@ -66,31 +65,39 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(widget.appTitle),
         actions: [
           IconButton(
-              // onPressed: () {
-              //   ScaffoldMessenger.of(context).showSnackBar(
-              //       const SnackBar(content: Text('This is a snackbar')));
-              // },
-              onPressed: _addItem,
-              icon: const Icon(Icons.add_circle))
+            icon: const Icon(Icons.add_circle),
+            onPressed: () {
+              setState(() {
+                _toDoList.add(
+                    Todo(title: "New title", description: "New Description"));
+              });
+              saveTodos();
+            },
+          )
         ],
       ),
-      body: AnimatedList(
+      body: ListView.builder(
           key: _key,
-          initialItemCount: 0,
-          itemBuilder: (context, index, animation) {
-            return SizeTransition(
-              sizeFactor: animation,
-              key: UniqueKey(),
-              child: Card(
-                color: Colors.blue[200],
-                child: ListTile(
-                  title: Text(_toDoList[index]),
-                  trailing: IconButton(
-                    onPressed: () {
-                      _removeItem(index);
-                    },
-                    icon: const Icon(Icons.check_circle),
+          itemCount: _toDoList.length,
+          itemBuilder: (context, index) {
+            return Card(
+              color: Colors.blue[200],
+              child: Dismissible(
+                key: UniqueKey(),
+                background: Container(
+                  color: Colors.red,
+                  child: const Icon(
+                    Icons.delete,
+                    color: Colors.white,
                   ),
+                ),
+                onDismissed: (direction) {
+                  setState(() {
+                    removeTodoAtIndex(index);
+                  });
+                },
+                child: ListTile(
+                  title: Text("${_toDoList[index].title}" " ${index + 1}"),
                 ),
               ),
             );
